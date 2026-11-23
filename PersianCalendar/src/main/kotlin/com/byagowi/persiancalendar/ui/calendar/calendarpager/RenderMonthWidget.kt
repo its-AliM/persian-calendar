@@ -79,9 +79,9 @@ fun renderMonthWidget(
                 dayPainter.setDayOfMonthItem(
                     isToday = isToday,
                     isSelected = day == selectedDay,
-                    hasEvent = events.any { it !is CalendarEvent.DeviceCalendarEvent },
-                    hasAppointment = deviceEventDays?.days?.contains(day)
-                        ?: events.any { it is CalendarEvent.DeviceCalendarEvent },
+                    hasEvent = events.any { it !is CalendarEvent.DeviceCalendarEvent && it !is CalendarEvent.LocalCalendarEvent },
+                    hasAppointment = (deviceEventDays?.days?.contains(day) ?: false) ||
+                        events.any { it is CalendarEvent.DeviceCalendarEvent || it is CalendarEvent.LocalCalendarEvent },
                     isHoliday = isHoliday,
                     jdn = day,
                     dayOfMonth = if (setText == null) text else "",

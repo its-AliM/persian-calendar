@@ -32,6 +32,8 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.milliseconds
 
+import com.byagowi.persiancalendar.entities.LocalEvent
+
 /** A new date never animates through an empty result or another date's event titles. */
 @Composable
 internal fun SelectedDayEvents(
@@ -41,6 +43,7 @@ internal fun SelectedDayEvents(
     navigateToHolidaysSettings: (String?) -> Unit,
     viewEvent: (CalendarEvent.DeviceCalendarEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onEditLocalEvent: ((LocalEvent) -> Unit)? = null,
 ) {
     // Retain only the layout measurement across dates, never the previous date's events.
     var contentHeight by remember { mutableIntStateOf(0) }
@@ -88,6 +91,7 @@ internal fun SelectedDayEvents(
                     events = events,
                     navigateToHolidaysSettings = navigateToHolidaysSettings,
                     viewEvent = viewEvent,
+                    onEditLocalEvent = onEditLocalEvent,
                     compact = false,
                     modifier = Modifier.padding(
                         top = 6.dp,

@@ -122,6 +122,33 @@ import com.byagowi.persiancalendar.ui.settings.SettingsSingleSelect
 import com.byagowi.persiancalendar.ui.settings.SettingsSwitch
 import com.byagowi.persiancalendar.ui.settings.interfacecalendar.calendarsorder.CalendarPreferenceDialog
 import com.byagowi.persiancalendar.ui.theme.animateColor
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import com.byagowi.persiancalendar.PREF_SHOW_LOCAL_EVENTS
+import com.byagowi.persiancalendar.data.LocalEventsRepository
+import com.byagowi.persiancalendar.global.isShowLocalEvents
+import com.byagowi.persiancalendar.shared.generated.resources.accept
+import com.byagowi.persiancalendar.shared.generated.resources.backup_export_failed
+import com.byagowi.persiancalendar.shared.generated.resources.backup_exported_successfully
+import com.byagowi.persiancalendar.shared.generated.resources.backup_import_failed
+import com.byagowi.persiancalendar.shared.generated.resources.backup_import_success
+import com.byagowi.persiancalendar.shared.generated.resources.cancel
+import com.byagowi.persiancalendar.shared.generated.resources.default_all_day_reminder_time
+import com.byagowi.persiancalendar.shared.generated.resources.export_backup
+import com.byagowi.persiancalendar.shared.generated.resources.export_backup_summary
+import com.byagowi.persiancalendar.shared.generated.resources.import_backup
+import com.byagowi.persiancalendar.shared.generated.resources.import_backup_summary
+import com.byagowi.persiancalendar.shared.generated.resources.local_events_reminders
+import com.byagowi.persiancalendar.shared.generated.resources.local_events_reminders_summary
+import com.byagowi.persiancalendar.shared.generated.resources.manage_local_events
+import com.byagowi.persiancalendar.ui.common.NumberPicker
+import com.byagowi.persiancalendar.ui.localevents.LocalEventsManagerDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.byagowi.persiancalendar.ui.utils.highlightItem
 import com.byagowi.persiancalendar.utils.isIslamicOffsetExpired
 import com.byagowi.persiancalendar.utils.logException
@@ -189,6 +216,148 @@ fun CalendarSettings(
             )
             if (showPermissionDialog) AskForCalendarPermissionDialog {
                 showPermissionDialog = false
+            }
+        }
+        Box {
+            var showEventsManager by rememberSaveable { mutableStateOf(false) }
+            var showReminderTimeDialog by rememberSaveable { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
+
+            val exportLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/json"),
+            ) { uri ->
+                if (uri != null) scope.launch {
+                    val success = withContext(Dispatchers.IO) {
+                        val output = context.contentResolver?.openOutputStream(uri) ?: return@withContext false
+                        output.use { LocalEventsRepository.exportBackup(it) }
+                    }
+                    val msg = if (success) {
+                        context.getString(com.byagowi.persiancalendar.shared.R.string.backup_exported_successfully)
+                    } else {
+                        context.getString(com.byagowi.persiancalendar.shared.R.string.backup_export_failed)
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT)?.show()
+                }
+            }
+
+            val importLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument(),
+            ) { uri ->
+                if (uri != null) scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        val input = context.contentResolver?.openInputStream(uri) ?: return@withContext null
+                        input.use { LocalEventsRepository.importBackup(context, it) }
+                    }
+                    val msg = if (result != null && (result.importedCount > 0 || result.skippedCount > 0)) {
+                        val formatStr = context.getString(com.byagowi.persiancalendar.shared.R.string.backup_import_success)
+                        String.format(formatStr, numeral.format(result.importedCount), numeral.format(result.skippedCount))
+                    } else {
+                        context.getString(com.byagowi.persiancalendar.shared.R.string.backup_import_failed)
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG)?.show()
+                }
+            }
+
+            val (curHour, curMinute) = LocalEventsRepository.getDefaultAllDayReminderTime(context)
+
+            Column {
+                SettingsSwitch(
+                    key = PREF_SHOW_LOCAL_EVENTS,
+                    value = isShowLocalEvents,
+                    title = stringResource(Res.string.local_events_reminders),
+                    summary = stringResource(Res.string.local_events_reminders_summary),
+                    onBeforeToggle = {
+                        LocalEventsRepository.onEventsChanged(context)
+                        it
+                    },
+                )
+
+                AnimatedVisibility(visible = isShowLocalEvents) {
+                    Column(Modifier.padding(start = 16.dp)) {
+                        SettingsClickable(
+                            title = stringResource(Res.string.manage_local_events),
+                            summary = stringResource(Res.string.manage_local_events),
+                        ) {
+                            showEventsManager = true
+                        }
+
+                        val formattedTime = "%02d:%02d".format(java.util.Locale.ENGLISH, curHour, curMinute).let(numeral::format)
+                        SettingsClickable(
+                            title = stringResource(Res.string.default_all_day_reminder_time),
+                            summary = formattedTime,
+                        ) {
+                            showReminderTimeDialog = true
+                        }
+
+                        SettingsClickable(
+                            title = stringResource(Res.string.export_backup),
+                            summary = stringResource(Res.string.export_backup_summary),
+                        ) {
+                            exportLauncher.launch("persian_calendar_backup.json")
+                        }
+
+                        SettingsClickable(
+                            title = stringResource(Res.string.import_backup),
+                            summary = stringResource(Res.string.import_backup_summary),
+                        ) {
+                            importLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        }
+                    }
+                }
+            }
+
+            if (showEventsManager) {
+                LocalEventsManagerDialog(onDismissRequest = { showEventsManager = false })
+            }
+
+            if (showReminderTimeDialog) {
+                var tempHour by rememberSaveable(showReminderTimeDialog) { mutableIntStateOf(curHour) }
+                var tempMinute by rememberSaveable(showReminderTimeDialog) { mutableIntStateOf(curMinute) }
+                val pendingConfirms = remember { mutableStateListOf<() -> Unit>() }
+                AppDialog(
+                    onDismissRequest = { showReminderTimeDialog = false },
+                    title = { Text(stringResource(Res.string.default_all_day_reminder_time)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            pendingConfirms.forEach { it() }
+                            showReminderTimeDialog = false
+                            LocalEventsRepository.setDefaultAllDayReminderTime(context, tempHour, tempMinute)
+                        }) {
+                            Text(stringResource(Res.string.accept))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showReminderTimeDialog = false }) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                    },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        NumberPicker(
+                            value = tempHour,
+                            range = 0..23,
+                            pendingConfirms = pendingConfirms,
+                            modifier = Modifier.weight(1f),
+                            label = { "%02d".format(java.util.Locale.ENGLISH, it).let(numeral::format) },
+                            onValueChange = { tempHour = it },
+                        )
+                        Text(":", style = MaterialTheme.typography.headlineMedium)
+                        NumberPicker(
+                            value = tempMinute,
+                            range = 0..59,
+                            pendingConfirms = pendingConfirms,
+                            modifier = Modifier.weight(1f),
+                            label = { "%02d".format(java.util.Locale.ENGLISH, it).let(numeral::format) },
+                            onValueChange = { tempMinute = it },
+                        )
+                    }
+                }
             }
         }
         Box(Modifier.highlightItem(destination == PREF_MAIN_CALENDAR_KEY)) {

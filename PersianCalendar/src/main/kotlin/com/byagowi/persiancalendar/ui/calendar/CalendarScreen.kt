@@ -267,6 +267,16 @@ import com.byagowi.persiancalendar.utils.AddEventData
 import com.byagowi.persiancalendar.utils.addEvent
 import com.byagowi.persiancalendar.utils.calendar
 import com.byagowi.persiancalendar.utils.createSearchRegex
+import androidx.compose.material3.Surface
+import com.byagowi.persiancalendar.entities.LocalEvent
+import com.byagowi.persiancalendar.ui.localevents.AddEditLocalEventDialog
+import com.byagowi.persiancalendar.ui.localevents.LocalEventsManagerDialog
+import com.byagowi.persiancalendar.shared.generated.resources.add_event_choose_title
+import com.byagowi.persiancalendar.shared.generated.resources.add_local_event_option
+import com.byagowi.persiancalendar.shared.generated.resources.add_device_event_option
+import com.byagowi.persiancalendar.shared.generated.resources.manage_local_events
+import com.byagowi.persiancalendar.ui.icons.material.filled.openInNewIcon
+import com.byagowi.persiancalendar.ui.icons.material.filled.calendarMonthIcon
 import com.byagowi.persiancalendar.utils.getEnabledAlarms
 import com.byagowi.persiancalendar.utils.hasAnyWidgetUpdateRecently
 import com.byagowi.persiancalendar.utils.logException
@@ -346,6 +356,10 @@ fun SharedTransitionScope.CalendarScreen(
     val backButtonFraction =
         remember { mutableFloatStateOf(if (isYearView || !isCalendarPagerVisible) 1f else 0f) }
     var isAddEventBoxEnabled by remember { mutableStateOf(false) }
+    var showAddLocalEventDialog by remember { mutableStateOf(false) }
+    var showAddEventChooserDialog by remember { mutableStateOf(false) }
+    var editingLocalEvent by remember { mutableStateOf<LocalEvent?>(null) }
+    var showLocalEventsManagerDialog by remember { mutableStateOf(false) }
     LaunchedEffect(isYearView, isAddEventBoxEnabled, isCalendarPagerVisible) {
         animate(
             initialValue = backButtonFraction.floatValue,
@@ -394,6 +408,7 @@ fun SharedTransitionScope.CalendarScreen(
                     isLoading = isLoading,
                     navigateToHolidaysSettings = navigateToHolidaysSettings,
                     viewEvent = viewEvent,
+                    onEditLocalEvent = { editingLocalEvent = it },
                 )
 
 //        if (PREF_HOLIDAY_TYPES !in context.preferences && language.isIranExclusive) {
@@ -617,6 +632,7 @@ fun SharedTransitionScope.CalendarScreen(
                         isButtonsMode = isButtonsMode,
                         toggleCalendarPager = { isCalendarPagerVisible = !isCalendarPagerVisible },
                         isCalendarPagerVisible = isCalendarPagerVisible,
+                        openLocalEventsManager = { showLocalEventsManagerDialog = true },
                     )
                 }
             }
@@ -650,8 +666,10 @@ fun SharedTransitionScope.CalendarScreen(
             ) {
                 AppFloatingActionButton(
                     onClick = {
-                        if (!isButtonsMode || ((isTalkBackEnabled || !isShowDeviceCalendarEvents) && !isAddEventBoxEnabled)) {
-                            addEvent(AddEventData.fromJdn(selectedDay))
+                        if (!isShowDeviceCalendarEvents) {
+                            showAddLocalEventDialog = true
+                        } else if (!isButtonsMode || ((isTalkBackEnabled || !isShowDeviceCalendarEvents) && !isAddEventBoxEnabled)) {
+                            showAddEventChooserDialog = true
                         } else addAction()
                     },
                 ) { Icon(addIcon, stringResource(Res.string.add_event)) }
@@ -813,6 +831,115 @@ fun SharedTransitionScope.CalendarScreen(
                 }
             }
         }
+    }
+
+    if (showAddLocalEventDialog) {
+        AddEditLocalEventDialog(
+            initialDate = selectedDay.toPersianDate(),
+            onDismissRequest = { showAddLocalEventDialog = false },
+            onEventSaved = {
+                showAddLocalEventDialog = false
+                refreshCalendar()
+            },
+        )
+    }
+
+    if (showAddEventChooserDialog) {
+        AppDialog(
+            onDismissRequest = { showAddEventChooserDialog = false },
+            title = { Text(stringResource(Res.string.add_event_choose_title)) },
+            dismissButton = {
+                TextButton(onClick = { showAddEventChooserDialog = false }) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showAddEventChooserDialog = false
+                            showAddLocalEventDialog = true
+                        },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            calendarMonthIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(Res.string.add_local_event_option),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showAddEventChooserDialog = false
+                            addEvent(AddEventData.fromJdn(selectedDay))
+                        },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            openInNewIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(Res.string.add_device_event_option),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    editingLocalEvent?.let { event ->
+        AddEditLocalEventDialog(
+            initialDate = selectedDay.toPersianDate(),
+            initialEvent = event,
+            onDismissRequest = { editingLocalEvent = null },
+            onEventSaved = {
+                editingLocalEvent = null
+                refreshCalendar()
+            },
+            onEventDeleted = {
+                editingLocalEvent = null
+                refreshCalendar()
+            },
+        )
+    }
+
+    if (showLocalEventsManagerDialog) {
+        LocalEventsManagerDialog(
+            onDismissRequest = {
+                showLocalEventsManagerDialog = false
+                refreshCalendar()
+            },
+        )
     }
 
     LaunchedEffect(today, eventsRepository) {
@@ -1430,6 +1557,7 @@ private fun SharedTransitionScope.Toolbar(
     isButtonsMode: Boolean,
     toggleCalendarPager: () -> Unit,
     isCalendarPagerVisible: Boolean,
+    openLocalEventsManager: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val selectedMonth = mainCalendar.getMonthStartFromMonthsDistance(
@@ -1743,6 +1871,11 @@ private fun SharedTransitionScope.Menu(
         AppDropdownMenuItem({ Text(stringResource(Res.string.shift_work_settings)) }) {
             closeMenu()
             showShiftWorkDialog = true
+        }
+
+        AppDropdownMenuItem({ Text(stringResource(Res.string.manage_local_events)) }) {
+            closeMenu()
+            openLocalEventsManager()
         }
 
         val shareFacilitator = ShareFacilitator.create(stringResource(Res.string.calendar))

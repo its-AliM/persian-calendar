@@ -436,8 +436,8 @@ fun daysTable(
                                 baseDayPainter.copy().setDayOfMonthItem(
                                     isToday = false,
                                     isSelected = false,
-                                    hasEvent = events.any { it !is CalendarEvent.DeviceCalendarEvent },
-                                    hasAppointment = events.any { it is CalendarEvent.DeviceCalendarEvent },
+                                    hasEvent = events.any { it !is CalendarEvent.DeviceCalendarEvent && it !is CalendarEvent.LocalCalendarEvent },
+                                    hasAppointment = events.any { it is CalendarEvent.DeviceCalendarEvent || it is CalendarEvent.LocalCalendarEvent },
                                     isHoliday = isHoliday,
                                     jdn = day,
                                     dayOfMonth = "",

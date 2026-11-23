@@ -93,7 +93,11 @@ data class EventsRepository(
 
     fun getEvents(jdn: Jdn, deviceEvents: DeviceCalendarEventsStore): List<CalendarEvent<*>> {
         val persianDate = jdn.toPersianDate()
-        return listOf(
+        val localEvents = com.byagowi.persiancalendar.data.LocalEventsRepository.getEventsForJdn(
+            jdn,
+            com.byagowi.persiancalendar.global.isShowLocalEvents,
+        )
+        return (listOf(
             persianCalendarEvents.getEvents(persianDate, irregularCalendarEventsStore),
             islamicCalendarEvents.getEvents(jdn.toIslamicDate(), irregularCalendarEventsStore),
             nepaliCalendarEvents.getEvents(jdn.toNepaliDate(), irregularCalendarEventsStore),
@@ -113,7 +117,7 @@ data class EventsRepository(
                 end != null -> persianDate.year <= end
                 else -> true
             }
-        }.let {
+        } + localEvents).let {
             val isAfghanistan = language.isAfghanistanExclusive
             val noPriority = !isAfghanistan && !language.isIranExclusive
             it.sortedBy {
@@ -121,7 +125,8 @@ data class EventsRepository(
                     (isAfghanistan xor (it.source != EventSource.Afghanistan)) || noPriority
                 when {
                     it.isHoliday -> if (priority) 0L else 1L
-                    it !is CalendarEvent.DeviceCalendarEvent -> if (priority) 2L else 3L
+                    it is CalendarEvent.LocalCalendarEvent -> 2L
+                    it !is CalendarEvent.DeviceCalendarEvent -> if (priority) 3L else 4L
                     else -> it.start.timeInMillis
                 }
             }

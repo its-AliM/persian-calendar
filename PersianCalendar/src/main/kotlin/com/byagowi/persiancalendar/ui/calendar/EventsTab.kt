@@ -105,6 +105,12 @@ import com.byagowi.persiancalendar.ui.icons.material.filled.openInBrowserIcon
 import com.byagowi.persiancalendar.ui.icons.material.filled.openInNewIcon
 import com.byagowi.persiancalendar.ui.icons.material.filled.settingsIcon
 import com.byagowi.persiancalendar.ui.icons.material.filled.yardIcon
+import com.byagowi.persiancalendar.entities.LocalEvent
+import com.byagowi.persiancalendar.entities.LocalEventCategory
+import com.byagowi.persiancalendar.ui.localevents.categoryIcon
+import com.byagowi.persiancalendar.ui.icons.material.filled.editIcon
+import com.byagowi.persiancalendar.shared.generated.resources.all_day
+import com.byagowi.persiancalendar.shared.generated.resources.edit_local_event
 import com.byagowi.persiancalendar.ui.icons.wikipediaIcon
 import com.byagowi.persiancalendar.ui.theme.animateColor
 import com.byagowi.persiancalendar.ui.theme.appCrossfadeSpec
@@ -141,6 +147,8 @@ fun eventColor(event: CalendarEvent<*>): Color {
             if (event.color.isEmpty()) null else Color(event.color.toLong())
         }.onFailure(logException).getOrNull() ?: MaterialTheme.colorScheme.primary
 
+        event is CalendarEvent.LocalCalendarEvent -> MaterialTheme.colorScheme.secondaryContainer
+
         event.isHoliday || event is CalendarEvent.EquinoxCalendarEvent -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
@@ -172,6 +180,7 @@ fun DayEvents(
     viewEvent: (CalendarEvent.DeviceCalendarEvent) -> Unit,
     modifier: Modifier = Modifier,
     compact: Boolean = true,
+    onEditLocalEvent: ((LocalEvent) -> Unit)? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     Column(
@@ -202,6 +211,7 @@ fun DayEvents(
                         title = title,
                         compact = compact,
                         viewEvent = viewEvent,
+                        onEditLocalEvent = onEditLocalEvent,
                         language = language,
                         numeral = numeral,
                         coroutineScope = coroutineScope,
@@ -221,6 +231,7 @@ private fun DayEventContent(
     title: String,
     language: Language,
     viewEvent: (CalendarEvent.DeviceCalendarEvent) -> Unit,
+    onEditLocalEvent: ((LocalEvent) -> Unit)?,
     coroutineScope: CoroutineScope,
     navigateToHolidaysSettings: ((item: String?) -> Unit),
     numeral: Numeral,
@@ -246,6 +257,8 @@ private fun DayEventContent(
             .clickable(onClickLabel = stringResource(Res.string.view_source)) {
                 if (event is CalendarEvent.DeviceCalendarEvent) {
                     viewEvent(event)
+                } else if (event is CalendarEvent.LocalCalendarEvent) {
+                    onEditLocalEvent?.invoke(event.localEvent)
                 } else if (hasTooltip) coroutineScope.launch {
                     if (tooltipState.isVisible) tooltipState.dismiss() else tooltipState.show()
                 }
@@ -262,6 +275,14 @@ private fun DayEventContent(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         val contentColor by animateColor(eventTextColor(backgroundColor))
+        if (event is CalendarEvent.LocalCalendarEvent) {
+            Icon(
+                categoryIcon(event.localEvent.category),
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp),
+            )
+        }
         Column(modifier = Modifier.weight(1f, fill = false)) {
             SelectionContainer(Modifier.semantics { this.hideFromAccessibility() }) {
                 Text(
@@ -273,9 +294,41 @@ private fun DayEventContent(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+            if (event is CalendarEvent.LocalCalendarEvent) {
+                val agePart = event.elapsedYears?.let {
+                    if (event.localEvent.category == LocalEventCategory.BIRTHDAY) {
+                        if (language.isPersianOrDari) "تولد ${numeral.format(it)} سالگی" else "$it years old"
+                    } else {
+                        if (language.isPersianOrDari) "سالگرد ${numeral.format(it)} سالگی" else "$it years"
+                    }
+                }
+                val timePart = event.formattedTime ?: stringResource(Res.string.all_day)
+                val subText = listOfNotNull(agePart, timePart).joinToString(" • ")
+                Text(
+                    text = subText,
+                    color = contentColor.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (event.localEvent.description.isNotBlank()) {
+                    Text(
+                        text = event.localEvent.description,
+                        color = contentColor.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                    )
+                }
+            }
             if (event is CalendarEvent.EquinoxCalendarEvent) {
                 EquinoxCountDown(contentColor, event, backgroundColor)
             }
+        }
+        AnimatedVisibility(event is CalendarEvent.LocalCalendarEvent) {
+            Icon(
+                editIcon,
+                contentDescription = stringResource(Res.string.edit_local_event),
+                tint = contentColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp),
+            )
         }
         AnimatedVisibility(
             when (event) {

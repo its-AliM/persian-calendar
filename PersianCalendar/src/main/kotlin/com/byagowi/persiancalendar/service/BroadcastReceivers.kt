@@ -32,16 +32,27 @@ class BroadcastReceivers : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             TelephonyManager.ACTION_PHONE_STATE_CHANGED,
             BROADCAST_RESTART_APP,
-                -> startWorker(context)
+                -> {
+                startWorker(context)
+                rescheduleLocalEventsAlarm(context)
+            }
 
             Intent.ACTION_DATE_CHANGED, Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_TIME_CHANGED, Intent.ACTION_SCREEN_ON,
-                -> update(context, true)
+                -> {
+                update(context, true)
+                rescheduleLocalEventsAlarm(context)
+            }
 
             BROADCAST_UPDATE_APP -> update(context, true)
 
-            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED ->
+            AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED -> {
                 rescheduleAlarmsWithExactAccess(context)
+                rescheduleLocalEventsAlarm(context)
+            }
+
+            com.byagowi.persiancalendar.BROADCAST_LOCAL_EVENT_REMINDER ->
+                handleLocalEventAlarmTrigger(context)
 
             ADD_EVENT -> runCatching {
                 val addEventIntent = AddEventData.upcoming().asIntent()

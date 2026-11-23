@@ -38,6 +38,19 @@ sealed class CalendarEvent<T : AbstractDate>(
         metadata: Map<String, Any>,
     ) : CalendarEvent<NepaliDate>(title, isHoliday, date, source, metadata)
 
+    class LocalCalendarEvent(
+        val localEvent: LocalEvent,
+        date: PersianDate,
+        val formattedTime: String?,
+        val elapsedYears: Int?,
+    ) : CalendarEvent<PersianDate>(
+        title = localEvent.title,
+        isHoliday = false,
+        date = date,
+        source = null,
+        metadata = mapOf("localEventId" to localEvent.id),
+    )
+
     class DeviceCalendarEvent(
         title: String, isHoliday: Boolean, source: EventSource?,
         metadata: Map<String, Any> = emptyMap(),
@@ -53,6 +66,10 @@ sealed class CalendarEvent<T : AbstractDate>(
         get() = when (this) {
             is DeviceCalendarEvent -> if (time == null) title else {
                 language.inParentheses.format(title, time)
+            }
+
+            is LocalCalendarEvent -> if (formattedTime == null) title else {
+                language.inParentheses.format(title, formattedTime)
             }
 
             else -> title

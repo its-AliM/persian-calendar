@@ -171,6 +171,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.runtime)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json)
 
     lintChecks(libs.slack.compose.lint.checks)
     androidTestImplementation(libs.compose.ui.test.junit4)

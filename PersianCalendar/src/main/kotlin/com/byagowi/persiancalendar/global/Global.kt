@@ -344,6 +344,9 @@ val preferredSwipeDownAction by preferredSwipeDownAction_
 private val isShowDeviceCalendarEvents_ = mutableStateOf(false)
 val isShowDeviceCalendarEvents by isShowDeviceCalendarEvents_
 
+private val isShowLocalEvents_ = mutableStateOf(true)
+val isShowLocalEvents by isShowLocalEvents_
+
 private val eventCalendarsIdsToExclude_ = mutableStateOf(emptyLongSet())
 val eventCalendarsIdsToExclude by eventCalendarsIdsToExclude_
 
@@ -663,6 +666,8 @@ fun updateStoredPreference(context: Context) {
 
     isShowDeviceCalendarEvents_.value =
         preferences.getBoolean(PREF_SHOW_DEVICE_CALENDAR_EVENTS, false)
+    com.byagowi.persiancalendar.data.LocalEventsRepository.init(context)
+    isShowLocalEvents_.value = preferences.getBoolean(com.byagowi.persiancalendar.PREF_SHOW_LOCAL_EVENTS, true)
     eventCalendarsIdsToExclude_.value = if (isShowDeviceCalendarEvents_.value) longSetOf(
         *(preferences.getString(PREF_CALENDARS_IDS_TO_EXCLUDE, null).orEmpty()).splitFilterNotEmpty(
             ",",

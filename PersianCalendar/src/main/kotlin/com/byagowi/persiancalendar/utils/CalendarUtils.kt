@@ -378,6 +378,7 @@ fun getEventsTitle(
         .map {
             val title = when {
                 it is CalendarEvent.DeviceCalendarEvent -> it.oneLinerTitleWithTime
+                it is CalendarEvent.LocalCalendarEvent -> it.oneLinerTitleWithTime
                 else -> it.title
             }
 
