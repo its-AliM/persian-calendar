@@ -495,5 +495,4 @@
     <string name="add_device_event_option">رویداد در تقویم دستگاه</string>
     <string name="title_required">عنوان نمی‌تواند خالی باشد</string>
     <string name="no_local_events">هیچ رویداد محلی ثبت نشده است</string>
-    <string name="save">ذخیره</string>
 </resources>

@@ -527,5 +527,4 @@
     <string name="add_device_event_option">Device calendar event</string>
     <string name="title_required">Title cannot be empty</string>
     <string name="no_local_events">No local events registered</string>
-    <string name="save">Save</string>
 </resources>
